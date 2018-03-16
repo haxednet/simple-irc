@@ -1,0 +1,25 @@
+{
+  "name": "simple-irc",
+  "version": "1.0.0",
+  "description": "irc socket wrapper for node.js",
+  "main": "irc.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haxednet/simple-irc.git"
+  },
+  "keywords": [
+    "node",
+    "node.js",
+    "javascript",
+    "irc"
+  ],
+  "author": "matthew ryan",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/haxednet/simple-irc/issues"
+  },
+  "homepage": "https://github.com/haxednet/simple-irc#readme"
+}

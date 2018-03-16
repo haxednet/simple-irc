@@ -1,6 +1,6 @@
 /*
 	irc.js: IRC class by Matthew Ryan www.haxed.net
-	version: 1.0.0
+	version: 1.0.1
 	License: MIT
 	
 */
@@ -38,11 +38,20 @@ function irc( e ){
 	this.onConnected = function( e ){};
 	this.onChannelJoined = function( e ){};
 	this.onChannelLeft = function( e ){};
+	this.onChannelTopicChanged = function( e ){};
 	
 	this.onUserJoined = function( e ){};
 	this.onUserLeft = function( e ){};
 	this.onUserQuit = function( e ){};
 	this.onUserKicked = function( e ){};
+	
+	this.onError = function( e ){
+		throw( "Uncaught error:" + e );
+	};
+	this.protocolError = function( e ){
+		console.log( "IRC Protocol Error: " + e.code + " " + e.message );
+	};
+	
 	
 	this.channelInfo = {
 	};
@@ -131,7 +140,12 @@ irc.prototype.parseData = function( e ){
 			/* it's a numeric ! */
 			this.onNumeric( { number: parseInt( bits[1] ), data: e } );
 		}
-
+		
+		for( let i in E ){
+			if( E[i] == bits[1] ) {
+				if( i.substr( 0, 4 ) == "ERR_" ) this.protocolError({ code: E[i], message: i });
+			}
+		}
 		
 		switch( bits[1].toUpperCase() ) {
 			
@@ -163,7 +177,7 @@ irc.prototype.parseData = function( e ){
 				break;
 				
 			case E.ERR_SASL_AUTH:
-				throw("SASL authentication failure!");
+				this.onError("ERR_SASL_AUTH_FAIL");
 				break;
 			case E.RPL_TOPIC:
 				/* channel topic */
@@ -291,6 +305,15 @@ irc.prototype.parseData = function( e ){
 			case "PING":
 				this.sendData( "PONG " + bits[2] );
 				break;
+				
+			case "TOPIC":
+				this.onChannelTopicChanged({
+					user: parseUser( bits[0] ),
+					channel: bits[2],
+					topic: cMsg
+				});
+				this.channelInfo[ bits[2].toLowerCase() ].topic = cMsg;
+				break;
 		}
 	
 	}
@@ -322,15 +345,43 @@ irc.prototype.parseData = function( e ){
 	}
 }
 
+
+
 irc.prototype.sendData = function( e ){
 	this.client.write( e + "\r\n" );
 }
-
 irc.prototype.sendMessage = function( e ){
 	/* irc.sendMessage({ type: "privmsg", to: "Jesus", message: "hey" }); */
 	if( e.type == undefined ) e.type = "privmsg";
 	this.sendData( e.type.toUpperCase() + " " + e.to + " :" + e.message );
 }
+irc.prototype.joinChannel = function( e ){
+	/* irc.joinChannel({ channel: "#channel", key: "secret" }) */
+	if( e.key == undefined ) e.key = "";
+	this.sendData( "JOIN " + e.channel );
+}
+irc.prototype.leaveChannel = function( e ){
+	/* irc.leaveChannel({ channel: "#channel", message: "bye" }) */
+	if( e.message == undefined ) e.message = "bye";
+	this.sendData( "PART " + e.channel + " :" + e.message );
+}
+irc.prototype.kickUser = function( e ){
+	/* irc.kickUser({ channel: "#channel", nick: "badguy", message: "bye" }) */
+	if( e.message == undefined ) e.message = e.nick;
+	this.sendData( "KICK " + e.channel + " " + e.nick + " :" + e.message );
+}
+irc.prototype.inviteUser = function( e ){
+	/* irc.inviteUser({ channel: "#channel", nick: "badguy" }) */
+	this.sendData( "INVITE " + e.nick + " " + e.channel );
+}
+irc.prototype.setTopic = function( e ){
+	/* irc.setTopic({ channel: "#channel", topic: "hey" }) */
+	this.sendData( "TOPIC " + e.channel + " :" + e.topic );
+}
+
+
+
+
 
 
 const E = {
