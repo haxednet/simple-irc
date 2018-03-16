@@ -26,3 +26,8 @@ bot.onPrivmsg = function( e ){
   if( !e.toChannel ) e.reply( "Hello!" );
 }
 ```
+## Basic Functions
+
+- **bot.joinChannel({ channel: "#channel" });** *optional: key*
+- **bot.leaveChannel({ channel: "#channel" });**
+- **irc.sendMessage({ type: "privmsg", to: "someuser", message: "hey" });** *optional: tyoe*
