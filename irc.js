@@ -1,6 +1,6 @@
 /*
 	irc.js: IRC class by Matthew Ryan www.haxed.net
-	version: 1.0.1
+	version: 1.0.2
 	License: MIT
 	
 */
@@ -46,9 +46,9 @@ function irc( e ){
 	this.onUserKicked = function( e ){};
 	
 	this.onError = function( e ){
-		throw( "Uncaught error:" + e );
+		throw( "Uncaught error:" + e.message );
 	};
-	this.protocolError = function( e ){
+	this.onProtocolError = function( e ){
 		console.log( "IRC Protocol Error: " + e.code + " " + e.message );
 	};
 	
@@ -81,7 +81,7 @@ function irc( e ){
 			const databits = me.cache.split( "\n" );
 			for( let i in databits ) {
 				if( databits[i].length > 0 ){
-					me.onData( databits[i] );
+					me.onData({ data: databits[i] });
 					me.parseData( databits[i] );
 				}
 			}
@@ -143,7 +143,7 @@ irc.prototype.parseData = function( e ){
 		
 		for( let i in E ){
 			if( E[i] == bits[1] ) {
-				if( i.substr( 0, 4 ) == "ERR_" ) this.protocolError({ code: E[i], message: i });
+				if( i.substr( 0, 4 ) == "ERR_" ) this.protocolError({ code: parseInt( E[i] ), message: i });
 			}
 		}
 		
@@ -177,7 +177,7 @@ irc.prototype.parseData = function( e ){
 				break;
 				
 			case E.ERR_SASL_AUTH:
-				this.onError("ERR_SASL_AUTH_FAIL");
+				this.onError({ message: "ERR_SASL_AUTH_FAIL" });
 				break;
 			case E.RPL_TOPIC:
 				/* channel topic */
@@ -210,7 +210,7 @@ irc.prototype.parseData = function( e ){
 					this.channelInfo[ bits[2].toLowerCase() ] = { topic: "", users: [] };
 				}else{
 					rt = bits[2]; /* who to reply to */
-					this.onUserJoined( { channel: bits[2], user: parseUser( bits[0] ), reply: reply } );
+					this.onUserJoined( { channel: bits[2], user: parseUser( bits[0] ).nick, reply: reply } );
 					this.channelInfo[ bits[2].toLowerCase() ].users.push( parseUser( bits[0] ).nick );
 					
 				}
@@ -222,7 +222,7 @@ irc.prototype.parseData = function( e ){
 					this.onChannelLeft( { channel: bits[2] } );
 					this.channelInfo[ bits[2].toLowerCase() ] = undefined;
 				}else{
-					this.onUserLeft( { channel: bits[2], user: parseUser( bits[0] ).nick, hostInfo: bits[0].substr(1), message: cMsg } );
+					this.onUserLeft( { channel: bits[2], user: parseUser( bits[0] ).nick, message: cMsg } );
 					let usersObj = this.channelInfo[ bits[2].toLowerCase() ].users;
 					for( let i in usersObj ) {
 						if( usersObj[i].toLowerCase() ==  parseUser( bits[0] ).nick.toLowerCase() ) {
@@ -239,7 +239,7 @@ irc.prototype.parseData = function( e ){
 					this.onDisconnect({ code: 1, message: "quit from server" });
 					this.channelInfo = {};
 				}else{
-					this.onUserQuit( { user: parseUser( bits[0] ).nick, hostInfo: bits[0].substr(1), message: cMsg } );
+					this.onUserQuit( { user: parseUser( bits[0] ).nick, message: cMsg } );
 					for( let i in this.channelInfo ) {
 						for( let a in this.channelInfo[i].users ) {
 							if( this.channelInfo[i].users[a].toLowerCase() == parseUser( bits[0] ).nick.toLowerCase() ) {
@@ -293,13 +293,13 @@ irc.prototype.parseData = function( e ){
 			case "NOTICE":
 				rt = parseUser( bits[0] ).nick; /* who to reply to */
 				if( isChannel( bits[2] ) ) rt = bits[2];
-				this.onNotice({ from: parseUser( bits[0] ), to: removeUserPrefix( bits[2] ), message: cMsg, toChannel: isChannel( bits[2] ), reply: reply  });
+				this.onNotice({ from: rt, to: removeUserPrefix( bits[2] ), message: cMsg, toChannel: isChannel( bits[2] ), reply: reply  });
 				break;
 				
 			case "PRIVMSG":
 				rt = parseUser( bits[0] ).nick; /* who to reply to */
 				if( isChannel( bits[2] ) ) rt = bits[2];
-				this.onPrivmsg({ from: parseUser( bits[0] ), to: removeUserPrefix( bits[2] ), message: cMsg, toChannel: isChannel( bits[2] ), reply: reply  });
+				this.onPrivmsg({ from: parseUser( bits[0] ).nick, to: removeUserPrefix( bits[2] ), message: cMsg, toChannel: isChannel( bits[2] ), reply: reply  });
 				break;
 				
 			case "PING":
@@ -320,8 +320,8 @@ irc.prototype.parseData = function( e ){
 	
 	function parseUser( e ) {
 		e = e.replace( ":", "" );
-		e = e.replace( "@", "!" ).split( "!" );
-		return { nick: e[0], ident: e[1], host: e[2] };
+		var a = e.replace( "@", "!" ).split( "!" );
+		return { nick: a[0], ident: a[1], host: a[2], fullString: e };
 	}
 	
 	function isChannel( e ) {
