@@ -55,22 +55,31 @@ bot.leaveChannel({ channel: "#test", message: "bye" });
 ```
 ---
 
-### bot.sendMessage({ message, to[, type] })
+### bot.sendMessage({ message, to })
 * `message` {string}
 * `to` {string}
-*  `type` {string} [optional]
 
-Sends `message` of `type` to the user `to`
-
-`type` is *optional* and can be a value of either `privmsg` or `notice`. if omitted the value will default to `privmsg`
+Sends `message` to the user `to`
 
 `to` is the destination of your message, it can be either a `channel` or a `nick`
 
 ```js
-bot.sendMessage({ message: "hey there", to: "ircuser123", type: "privmsg" });
+bot.sendMessage({ message: "hey there", to: "ircuser123" });
 ```
 ---
 
+### bot.sendNotice({ message, to })
+* `message` {string}
+* `to` {string}
+
+Sends `message` to the user `to`
+
+`to` is the destination of your message, it can be either a `channel` or a `nick`
+
+```js
+bot.sendNotice({ message: "hey there", to: "ircuser123" });
+```
+---
 ### bot.kickUser({ channel, nick[, message] })
 * `channel` {string}
 * `nick` {string}

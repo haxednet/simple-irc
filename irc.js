@@ -28,7 +28,7 @@ function irc( e ){
 	this.cache = ""; /* a place to store data until we need it */
 	
 	this.onConnect = function( e ){};
-	this.onDisconnect = function( e ){};
+	this.onDisconnect = function( e ){ throw("Disconnected from IRC"); };
 	this.onData = function( e ){};
 	this.onPrivmsg = function( e ){};
 	this.onNotice = function( e ){};
@@ -45,6 +45,7 @@ function irc( e ){
 	this.onUserQuit = function( e ){};
 	this.onUserKicked = function( e ){};
 	
+	
 	this.onError = function( e ){
 		throw( "Uncaught error:" + e.message );
 	};
@@ -52,17 +53,36 @@ function irc( e ){
 		console.log( "IRC Protocol Error: " + e.code + " " + e.message );
 	};
 	
+	this.callbackState = {
+		/*
+			used when hold data while waiting to execute a callback
+			state 0 = nothing
+			state 1 = waiting for ban list
+		*/
+		state: 0,
+		callback: function(){},
+		cache: ""
+	}
+	
+	const me = this;
+	
+	this.pingTimer = setInterval(function(){
+		me.sendData( "PING :hello" );
+	}, 30000);
+	
 	
 	this.channelInfo = {
-	};
+		'#burd':{
+				topic: 'Project is dead. Thanks google',
+				users: [ 'roar', 'Time-Warp', 'duckgoose' ]
+			}
+	 };
 	
 	this.serverOptions = {
 		channelModes: [ "b", "k", "l", "imnpstr" ],
 		prefix: [ "ov", "@+" ],
 		chanTypes: [ "#" ]
 	};
-	
-	const me = this;
 	
 	/* now lets make a tcp socket */
 	this.client = new net.Socket();
@@ -143,7 +163,7 @@ irc.prototype.parseData = function( e ){
 		
 		for( let i in E ){
 			if( E[i] == bits[1] ) {
-				if( i.substr( 0, 4 ) == "ERR_" ) this.protocolError({ code: parseInt( E[i] ), message: i });
+				if( i.substr( 0, 4 ) == "ERR_" ) this.onProtocolError({ code: parseInt( E[i] ), message: i, data: e });
 			}
 		}
 		
@@ -191,6 +211,31 @@ irc.prototype.parseData = function( e ){
 					this.channelInfo[ bits[4].toLowerCase() ].users.push( removeUserPrefix( chanUsers[i] ) );
 				}
 				break;
+				
+			case E.RPL_BANLIST:
+				
+				if( this.callbackState.state == 1 ){
+					this.callbackState.cache += e + "\n"
+				}
+				break;
+				
+			case E.RPL_ENDOFBANLIST:
+				if( this.callbackState.state == 1 ){
+					const bld = this.callbackState.cache.split("\n");
+					
+					const returnObj = [];
+					for( let i in bld ){
+						if(bld[i].length > 1){
+							let s = bld[i].split(" ");
+							returnObj.push({ mask: s[4], setter: s[5], time: s[6] });
+						}
+					}
+					this.callbackState.state = 0;
+					this.callbackState.callback( returnObj );
+					this.callbackState.callback = null;
+					this.callbackState.cache = "";
+				}
+				break;
 			
 			case "CAP":
 				if( this.userInfo.auth.type == 2 && bits[3] == "ACK" && bits[4] == ":sasl" ) {
@@ -210,7 +255,7 @@ irc.prototype.parseData = function( e ){
 					this.channelInfo[ bits[2].toLowerCase() ] = { topic: "", users: [] };
 				}else{
 					rt = bits[2]; /* who to reply to */
-					this.onUserJoined( { channel: bits[2], user: parseUser( bits[0] ).nick, reply: reply } );
+					this.onUserJoined( { channel: bits[2], user: parseUser( bits[0] ).nick, reply: reply, userInfo: parseUser( bits[0] ) } );
 					this.channelInfo[ bits[2].toLowerCase() ].users.push( parseUser( bits[0] ).nick );
 					
 				}
@@ -222,7 +267,7 @@ irc.prototype.parseData = function( e ){
 					this.onChannelLeft( { channel: bits[2] } );
 					this.channelInfo[ bits[2].toLowerCase() ] = undefined;
 				}else{
-					this.onUserLeft( { channel: bits[2], user: parseUser( bits[0] ).nick, message: cMsg } );
+					this.onUserLeft( { channel: bits[2], user: parseUser( bits[0] ).nick, message: cMsg, userInfo: parseUser( bits[0] ) } );
 					let usersObj = this.channelInfo[ bits[2].toLowerCase() ].users;
 					for( let i in usersObj ) {
 						if( usersObj[i].toLowerCase() ==  parseUser( bits[0] ).nick.toLowerCase() ) {
@@ -239,7 +284,7 @@ irc.prototype.parseData = function( e ){
 					this.onDisconnect({ code: 1, message: "quit from server" });
 					this.channelInfo = {};
 				}else{
-					this.onUserQuit( { user: parseUser( bits[0] ).nick, message: cMsg } );
+					this.onUserQuit( { user: parseUser( bits[0] ).nick, message: cMsg, userInfo: parseUser( bits[0] ) } );
 					for( let i in this.channelInfo ) {
 						for( let a in this.channelInfo[i].users ) {
 							if( this.channelInfo[i].users[a].toLowerCase() == parseUser( bits[0] ).nick.toLowerCase() ) {
@@ -291,15 +336,15 @@ irc.prototype.parseData = function( e ){
 				}
 				break;
 			case "NOTICE":
-				rt = parseUser( bits[0] ).nick; /* who to reply to */
+				rt = parseUser( bits[0] ); /* who to reply to */
 				if( isChannel( bits[2] ) ) rt = bits[2];
-				this.onNotice({ from: rt, to: removeUserPrefix( bits[2] ), message: cMsg, toChannel: isChannel( bits[2] ), reply: reply  });
+				this.onNotice({ from: rt.nick, to: removeUserPrefix( bits[2] ), message: cMsg, toChannel: isChannel( bits[2] ), reply: reply, userInfo: rt  });
 				break;
 				
 			case "PRIVMSG":
 				rt = parseUser( bits[0] ).nick; /* who to reply to */
 				if( isChannel( bits[2] ) ) rt = bits[2];
-				this.onPrivmsg({ from: parseUser( bits[0] ).nick, to: removeUserPrefix( bits[2] ), message: cMsg, toChannel: isChannel( bits[2] ), reply: reply  });
+				this.onPrivmsg({ from: parseUser( bits[0] ).nick, to: removeUserPrefix( bits[2] ), message: cMsg, toChannel: isChannel( bits[2] ), reply: reply, userInfo: parseUser( bits[0] )  });
 				break;
 				
 			case "PING":
@@ -351,9 +396,12 @@ irc.prototype.sendData = function( e ){
 	this.client.write( e + "\r\n" );
 }
 irc.prototype.sendMessage = function( e ){
-	/* irc.sendMessage({ type: "privmsg", to: "Jesus", message: "hey" }); */
-	if( e.type == undefined ) e.type = "privmsg";
-	this.sendData( e.type.toUpperCase() + " " + e.to + " :" + e.message );
+	/* irc.sendMessage({ to: "Jesus", message: "hey" }); */
+	this.sendData( "PRIVMSG " + e.to + " :" + e.message );
+}
+irc.prototype.sendNotice = function( e ){
+	/* irc.sendNotice({ to: "Jesus", message: "hey" }); */
+	this.sendData( "NOTICE " + e.to + " :" + e.message );
 }
 irc.prototype.joinChannel = function( e ){
 	/* irc.joinChannel({ channel: "#channel", key: "secret" }) */
@@ -378,8 +426,23 @@ irc.prototype.setTopic = function( e ){
 	/* irc.setTopic({ channel: "#channel", topic: "hey" }) */
 	this.sendData( "TOPIC " + e.channel + " :" + e.topic );
 }
+irc.prototype.getChannelUsers = function( e ){
+	/* irc.getChannelUsers({ channel: "#channel" }) */
+	if( this.channelInfo[e.channel] == undefined ) return [];
+	return this.channelInfo[e.channel].users;
+}
+irc.prototype.getChannelTopic = function( e ){
+	/* irc.getChannelTopic({ channel: "#channel" }) */
+	if( this.channelInfo[e.channel] == undefined ) return "";
+	return this.channelInfo[e.channel].topic;
+}
 
-
+irc.prototype.getChannelBanList = function( e ){
+	/* irc.getChannelList({ channel: "#channel", callback: function(e){} }) */
+	this.callbackState.state = 1;
+	this.callbackState.callback = e.callback;
+	this.sendData( "MODE " + e.channel + " +b" );
+}
 
 
 
