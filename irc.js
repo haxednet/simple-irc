@@ -1,6 +1,6 @@
 /*
 	irc.js: IRC class by Matthew Ryan www.haxed.net
-	version: 1.0.2
+	version: 1.0.3
 	License: MIT
 	
 */

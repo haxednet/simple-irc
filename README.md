@@ -6,13 +6,14 @@ An easy-to-use IRC socket wrapper for node.js, written in JavaScript of course!
 npm install simple-irc
 ```
 
+
 ## Basic Usage
 ```js
 const irc = require("simple-irc");
 
 const bot = new irc({
 	server: { address: "irc.snoonet.org", port: 6667 },
-	userInfo: { nick: "SimpleIRCBot56622", auth: { type: irc().authType.none } },
+	userInfo: { nick: "SimpleIRCBot56622" },
 	channels: [
 		{ name: "#botwars" }
 	]
@@ -23,8 +24,60 @@ bot.onChannelJoined = function( e ){
 }
 
 bot.onPrivmsg = function( e ){
-  if( !e.toChannel ) e.reply( "Hello!" );
+	if( !e.toChannel ) e.reply( "Hello!" );
 }
+```
+
+
+
+## Authentication
+this wrapper supports the following authentication methods:
+
+* `irc().authType.nickServ`
+* `irc().authType.saslPlain`
+
+### authType.nickServ
+
+```js
+const irc = require("simple-irc");
+
+const bot = new irc({
+	server: { address: "irc.snoonet.org", port: 6667 },
+	userInfo: {
+		nick: "SimpleIRCBot56622",
+		auth: {
+			type: irc().authType.nickServ,
+			user: "MyNickName",
+			password: "secret"
+		}
+	},
+	channels: [
+		{ name: "#botwars" }
+	]
+});
+```
+
+---
+
+### authType.saslPlain
+
+```js
+const irc = require("simple-irc");
+
+const bot = new irc({
+	server: { address: "irc.snoonet.org", port: 6667 },
+	userInfo: {
+		nick: "SimpleIRCBot56622",
+		auth: {
+			type: irc().authType.saslPlain,
+			user: "MySaslUN",
+			password: "secret"
+		}
+	},
+	channels: [
+		{ name: "#botwars" }
+	]
+});
 ```
 
 
