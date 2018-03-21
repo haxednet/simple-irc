@@ -2,10 +2,8 @@ const irc = require("./irc.js");
 const readline = require('readline');
 
 const bot = new irc({
-	server: { address: "chat.freenode.net", port: 6667 },
-	userInfo: { nick: "roar", username: "roar", auth: {
-			type: irc().authType.none
-		} },
+	server: { address: "chat.freenode.net" },
+	userInfo: { nick: "roar" },
 	channels: [
 		{ name: "#burd" }
 	]

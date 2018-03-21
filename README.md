@@ -12,10 +12,10 @@ npm install simple-irc
 const irc = require("simple-irc");
 
 const bot = new irc({
-	server: { address: "irc.snoonet.org", port: 6667 },
-	userInfo: { nick: "SimpleIRCBot56622" },
+	server: { address: "chat.freenode.net" },
+	userInfo: { nick: "IRCuser123" },
 	channels: [
-		{ name: "#botwars" }
+		{ name: "#test" }
 	]
 });
 
