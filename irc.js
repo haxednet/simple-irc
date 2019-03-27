@@ -5,14 +5,16 @@
 	
 */
 
+const tls = require( 'tls' );
 const net = require( 'net' );
 const E = require( './enums.json' );
+let network;
 
 function irc( e ){
 	if( !e ) return { authType: { none: 0, nickServ: 1, saslPlain: 2 } };
 	
 	if( !e.server || !e.server.address ) throw("invalid or missing server information");
-	
+
 	if( !e.userInfo || !e.userInfo.nick ) throw("invalid or missing user information");
 	
 	if( E.RPL_WELCOME == undefined ) throw("failed to load enumerators from enums.json");
@@ -31,7 +33,7 @@ function irc( e ){
 	this.cache = ""; /* temp package storage, unless we get all the data */
 	
 	this.onConnect = function( e ){};
-	this.onDisconnect = function( e ){ throw("Disconnected from IRC"); };
+	this.onDisconnect = function( e ){ throw("Disconnected from IRC: " + e.message); };
 	this.onData = function( e ){};
 	this.onPrivmsg = function( e ){};
 	this.onNotice = function( e ){};
@@ -89,7 +91,11 @@ function irc( e ){
 	};
 	
 	/* now lets make a tcp socket */
-	this.client = new net.Socket();
+	if (!e.userInfo.auth.secure) {
+		this.client = new net.Socket();
+	} else {
+		this.client = new tls.TLSSocket();
+	}
 	this.client.connect(e.server.port, e.server.address, function() {
 		me.connected = true;
 		me.onConnect();

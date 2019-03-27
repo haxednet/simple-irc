@@ -1,6 +1,6 @@
 {
   "name": "simple-irc",
-  "version": "1.0.3",
+  "version": "1.0.3a",
   "description": "irc socket wrapper for node.js",
   "main": "irc.js",
   "scripts": {
